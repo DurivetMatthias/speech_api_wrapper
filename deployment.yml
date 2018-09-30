@@ -1,0 +1,76 @@
+---
+kind: "Service"
+apiVersion: "v1"
+metadata:
+  name: "myservice"
+spec:
+  selector:
+    app: "myapp"
+  ports:
+    - protocol: "TCP"
+      # Port accessible inside cluster
+      port: 80
+      # Port to forward to inside the pod
+      targetPort: 80
+      # Port accessible outside cluster
+      nodePort: 30002
+  type: "LoadBalancer"
+
+
+---
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata:
+  name: "myapp-config"
+  namespace: "default"
+  labels:
+    app: "myapp"
+data:
+  API_KEY: "AIzaSyD21lLi4-wbqQOSlBhXGfEjQbYvTx39CbE"
+
+
+---
+apiVersion: "extensions/v1beta1"
+kind: "Deployment"
+metadata:
+  name: "myappdeployment"
+spec:
+  replicas: 1
+  selector:
+      matchLabels:
+        app: "myapp"
+  template:
+    metadata:
+      labels:
+        app: "myapp"
+    spec:
+      containers:
+        - name: "myapp"
+          image: "matthiasdurivetdocker/apiwrapper:2.0"
+          ports:
+          - containerPort: 80
+          env:
+          - name: "API_KEY"
+            valueFrom:
+              configMapKeyRef:
+                key: "API_KEY"
+                name: "myapp-config"
+
+
+
+---
+apiVersion: "autoscaling/v1"
+kind: "HorizontalPodAutoscaler"
+metadata:
+  name: "myapp-hpa"
+  namespace: "default"
+  labels:
+    app: "myapp"
+spec:
+  scaleTargetRef:
+    kind: "Deployment"
+    name: "myapp"
+    apiVersion: "apps/v1beta1"
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
